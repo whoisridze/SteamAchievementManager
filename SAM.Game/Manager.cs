@@ -28,6 +28,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using static SAM.Game.InvariantShorthand;
 using APITypes = SAM.API.Types;
@@ -49,6 +51,9 @@ namespace SAM.Game
         private readonly BindingList<Stats.StatInfo> _Statistics = new();
 
         private readonly API.Callbacks.UserStatsReceived _UserStatsReceivedCallback;
+
+        private CancellationTokenSource _DelayedUnlockCts;
+        private bool _IsUnlockingWithDelay;
 
         //private API.Callback<APITypes.UserStatsStored> UserStatsStoredCallback;
 
@@ -743,6 +748,34 @@ namespace SAM.Game
 
         private void OnStore(object sender, EventArgs e)
         {
+            if (this._IsUnlockingWithDelay)
+            {
+                this._DelayedUnlockCts?.Cancel();
+                return;
+            }
+
+            var achievementsToUnlock = this.GetAchievementsToUnlock();
+            var achievementsToLock = this.GetAchievementsToLock();
+
+            if (!int.TryParse(this._MinDelayTextBox.Text, out int minDelay))
+            {
+                minDelay = 0;
+            }
+            if (!int.TryParse(this._MaxDelayTextBox.Text, out int maxDelay))
+            {
+                maxDelay = 0;
+            }
+
+            if (minDelay > 0 && achievementsToUnlock.Count > 0)
+            {
+                if (maxDelay < minDelay)
+                {
+                    maxDelay = minDelay;
+                }
+                _ = this.StoreAchievementsWithDelayAsync(achievementsToUnlock, achievementsToLock, minDelay, maxDelay);
+                return;
+            }
+
             int achievements = this.StoreAchievements();
             if (achievements < 0)
             {
@@ -770,6 +803,161 @@ namespace SAM.Game
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             this.RefreshStats();
+        }
+
+        private List<Stats.AchievementInfo> GetAchievementsToUnlock()
+        {
+            List<Stats.AchievementInfo> achievements = new();
+            foreach (ListViewItem item in this._AchievementListView.Items)
+            {
+                if (item.Tag is not Stats.AchievementInfo achievementInfo)
+                {
+                    continue;
+                }
+                if (item.Checked && !achievementInfo.IsAchieved)
+                {
+                    achievements.Add(achievementInfo);
+                }
+            }
+            return achievements;
+        }
+
+        private List<Stats.AchievementInfo> GetAchievementsToLock()
+        {
+            List<Stats.AchievementInfo> achievements = new();
+            foreach (ListViewItem item in this._AchievementListView.Items)
+            {
+                if (item.Tag is not Stats.AchievementInfo achievementInfo)
+                {
+                    continue;
+                }
+                if (!item.Checked && achievementInfo.IsAchieved)
+                {
+                    achievements.Add(achievementInfo);
+                }
+            }
+            return achievements;
+        }
+
+        private async Task StoreAchievementsWithDelayAsync(
+            List<Stats.AchievementInfo> toUnlock,
+            List<Stats.AchievementInfo> toLock,
+            int minDelaySeconds,
+            int maxDelaySeconds)
+        {
+            this._IsUnlockingWithDelay = true;
+            this._DelayedUnlockCts = new CancellationTokenSource();
+            var token = this._DelayedUnlockCts.Token;
+            var random = new Random();
+
+            this._StoreButton.Text = "Cancel";
+            this._ReloadButton.Enabled = false;
+            this._AchievementListView.Enabled = false;
+
+            int totalCount = toUnlock.Count + toLock.Count;
+            int processedCount = 0;
+
+            try
+            {
+                foreach (var info in toLock)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    info.IsAchieved = false;
+                    if (!this._SteamClient.SteamUserStats.SetAchievement(info.Id, false))
+                    {
+                        this._GameStatusLabel.Text = $"Error locking {info.Id}";
+                        break;
+                    }
+
+                    if (!this._SteamClient.SteamUserStats.StoreStats())
+                    {
+                        this._GameStatusLabel.Text = $"Error storing {info.Id}";
+                        break;
+                    }
+
+                    processedCount++;
+                    this._GameStatusLabel.Text = $"Locked {info.Name} ({processedCount}/{totalCount})";
+                }
+
+                for (int i = 0; i < toUnlock.Count; i++)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    var info = toUnlock[i];
+                    info.IsAchieved = true;
+
+                    if (!this._SteamClient.SteamUserStats.SetAchievement(info.Id, true))
+                    {
+                        this._GameStatusLabel.Text = $"Error unlocking {info.Id}";
+                        break;
+                    }
+
+                    if (!this._SteamClient.SteamUserStats.StoreStats())
+                    {
+                        this._GameStatusLabel.Text = $"Error storing {info.Id}";
+                        break;
+                    }
+
+                    processedCount++;
+                    this._GameStatusLabel.Text = $"Unlocked {info.Name} ({processedCount}/{totalCount})";
+
+                    if (i < toUnlock.Count - 1)
+                    {
+                        int delaySeconds = random.Next(minDelaySeconds, maxDelaySeconds + 1);
+                        for (int remaining = delaySeconds; remaining > 0 && !token.IsCancellationRequested; remaining--)
+                        {
+                            this._GameStatusLabel.Text = $"Unlocked {info.Name} ({processedCount}/{totalCount}) - Next in {remaining}s";
+                            await Task.Delay(1000, token).ConfigureAwait(true);
+                        }
+                    }
+                }
+
+                int stats = this.StoreStatistics();
+                if (stats > 0)
+                {
+                    this._SteamClient.SteamUserStats.StoreStats();
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    this._GameStatusLabel.Text = $"Cancelled. Processed {processedCount}/{totalCount} achievements.";
+                }
+                else
+                {
+                    this._GameStatusLabel.Text = $"Completed! Stored {processedCount} achievements and {stats} statistics.";
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                this._GameStatusLabel.Text = $"Cancelled. Processed {processedCount}/{totalCount} achievements.";
+            }
+            catch (Exception ex)
+            {
+                this._GameStatusLabel.Text = $"Error: {ex.Message}";
+                MessageBox.Show(
+                    this,
+                    $"An error occurred during delayed unlock:\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            finally
+            {
+                this._IsUnlockingWithDelay = false;
+                this._StoreButton.Text = "Commit Changes";
+                this._ReloadButton.Enabled = true;
+                this._AchievementListView.Enabled = true;
+                this._DelayedUnlockCts?.Dispose();
+                this._DelayedUnlockCts = null;
+                this.RefreshStats();
+            }
         }
 
         private void OnStatDataError(object sender, DataGridViewDataErrorEventArgs e)

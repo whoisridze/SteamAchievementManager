@@ -57,6 +57,11 @@
             this._DisplayUnlockedOnlyButton = new System.Windows.Forms.ToolStripButton();
             this._MatchingStringLabel = new System.Windows.Forms.ToolStripLabel();
             this._MatchingStringTextBox = new System.Windows.Forms.ToolStripTextBox();
+            this._DelayLabel = new System.Windows.Forms.ToolStripLabel();
+            this._MinDelayTextBox = new System.Windows.Forms.ToolStripTextBox();
+            this._DelayRangeLabel = new System.Windows.Forms.ToolStripLabel();
+            this._MaxDelayTextBox = new System.Windows.Forms.ToolStripTextBox();
+            this._DelayUnitLabel = new System.Windows.Forms.ToolStripLabel();
             this._StatisticsTabPage = new System.Windows.Forms.TabPage();
             this._EnableStatsEditingCheckBox = new System.Windows.Forms.CheckBox();
             this._StatisticsDataGridView = new System.Windows.Forms.DataGridView();
@@ -245,7 +250,13 @@
             this._DisplayUnlockedOnlyButton,
             _ToolStripSeparator2,
             this._MatchingStringLabel,
-            this._MatchingStringTextBox});
+            this._MatchingStringTextBox,
+            new System.Windows.Forms.ToolStripSeparator(),
+            this._DelayLabel,
+            this._MinDelayTextBox,
+            this._DelayRangeLabel,
+            this._MaxDelayTextBox,
+            this._DelayUnitLabel});
             this._AchievementsToolStrip.Location = new System.Drawing.Point(3, 3);
             this._AchievementsToolStrip.Name = "_AchievementsToolStrip";
             this._AchievementsToolStrip.Size = new System.Drawing.Size(682, 25);
@@ -325,7 +336,44 @@
             this._MatchingStringTextBox.Size = new System.Drawing.Size(100, 25);
             this._MatchingStringTextBox.ToolTipText = "Type at least 3 characters that must appear in the name or description";
             this._MatchingStringTextBox.KeyUp += new System.Windows.Forms.KeyEventHandler(this.OnFilterUpdate);
-            // 
+            //
+            // _DelayLabel
+            //
+            this._DelayLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._DelayLabel.Name = "_DelayLabel";
+            this._DelayLabel.Size = new System.Drawing.Size(36, 22);
+            this._DelayLabel.Text = "Delay";
+            //
+            // _MinDelayTextBox
+            //
+            this._MinDelayTextBox.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._MinDelayTextBox.Name = "_MinDelayTextBox";
+            this._MinDelayTextBox.Size = new System.Drawing.Size(35, 25);
+            this._MinDelayTextBox.Text = "60";
+            this._MinDelayTextBox.ToolTipText = "Minimum delay in seconds between achievement unlocks";
+            //
+            // _DelayRangeLabel
+            //
+            this._DelayRangeLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._DelayRangeLabel.Name = "_DelayRangeLabel";
+            this._DelayRangeLabel.Size = new System.Drawing.Size(12, 22);
+            this._DelayRangeLabel.Text = "-";
+            //
+            // _MaxDelayTextBox
+            //
+            this._MaxDelayTextBox.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._MaxDelayTextBox.Name = "_MaxDelayTextBox";
+            this._MaxDelayTextBox.Size = new System.Drawing.Size(35, 25);
+            this._MaxDelayTextBox.Text = "300";
+            this._MaxDelayTextBox.ToolTipText = "Maximum delay in seconds between achievement unlocks";
+            //
+            // _DelayUnitLabel
+            //
+            this._DelayUnitLabel.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._DelayUnitLabel.Name = "_DelayUnitLabel";
+            this._DelayUnitLabel.Size = new System.Drawing.Size(24, 22);
+            this._DelayUnitLabel.Text = "sec";
+            //
             // _StatisticsTabPage
             // 
             this._StatisticsTabPage.Controls.Add(this._EnableStatsEditingCheckBox);
@@ -426,5 +474,10 @@
         private System.Windows.Forms.ToolStripTextBox _MatchingStringTextBox;
         private System.Windows.Forms.ColumnHeader _AchievementUnlockTimeColumnHeader;
         private System.Windows.Forms.CheckBox _EnableStatsEditingCheckBox;
+        private System.Windows.Forms.ToolStripLabel _DelayLabel;
+        private System.Windows.Forms.ToolStripTextBox _MinDelayTextBox;
+        private System.Windows.Forms.ToolStripLabel _DelayRangeLabel;
+        private System.Windows.Forms.ToolStripTextBox _MaxDelayTextBox;
+        private System.Windows.Forms.ToolStripLabel _DelayUnitLabel;
     }
 }
