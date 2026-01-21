@@ -772,7 +772,9 @@ namespace SAM.Game
                 {
                     maxDelay = minDelay;
                 }
-                _ = this.StoreAchievementsWithDelayAsync(achievementsToUnlock, achievementsToLock, minDelay, maxDelay);
+#pragma warning disable CS4014
+                this.StoreAchievementsWithDelayAsync(achievementsToUnlock, achievementsToLock, minDelay, maxDelay);
+#pragma warning restore CS4014
                 return;
             }
 
